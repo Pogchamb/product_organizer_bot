@@ -55,7 +55,8 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
     @router.message(Command("new_trip"), GroupChat())
     async def cmd_new_trip(message: Message) -> None:
-        name = message.text.removeprefix("/new_trip").strip()
+        args = message.text.split(maxsplit=1)
+        name = args[1].strip() if len(args) > 1 else ""
         if not name:
             await message.reply("❌ Укажи название: /new_trip <b>Название поездки</b>")
             return
@@ -82,7 +83,8 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
     @router.message(Command("trip"), GroupChat())
     async def cmd_trip(message: Message) -> None:
-        trip_id_str = message.text.removeprefix("/trip").strip()
+        args = message.text.split(maxsplit=1)
+        trip_id_str = args[1].strip() if len(args) > 1 else ""
         if not trip_id_str:
             await message.reply("❌ Укажи ID: /trip <b>ID</b>")
             return
@@ -112,7 +114,8 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
     @router.message(Command("add_item"), GroupChat())
     async def cmd_add_item(message: Message) -> None:
-        args = message.text.removeprefix("/add_item").strip()
+        parts = message.text.split(maxsplit=1)
+        args = parts[1].strip() if len(parts) > 1 else ""
         if not args:
             await message.reply("❌ Укажи: /add_item <b>Название</b> [количество]")
             return
@@ -139,7 +142,8 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
     @router.message(Command("add_dish"), GroupChat())
     async def cmd_add_dish(message: Message) -> None:
-        args = message.text.removeprefix("/add_dish").strip()
+        parts = message.text.split(maxsplit=1)
+        args = parts[1].strip() if len(parts) > 1 else ""
         if not args:
             await message.reply("❌ Укажи: /add_dish <b>Блюдо</b> <b>количество персон</b>")
             return
