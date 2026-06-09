@@ -41,7 +41,7 @@ async def main() -> None:
 
     logger.info("Starting bot polling and web server...")
     await asyncio.gather(
-        dp.start_polling(bot),
+        await dp.start_polling(bot, drop_pending_updates=True),
         server.serve(),
     )
 
