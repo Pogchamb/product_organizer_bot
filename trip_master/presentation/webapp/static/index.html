@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TripMaster</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="loading">Загрузка...</div>
+    <div id="trips-view" class="view hidden">
+      <h1>Поездки</h1>
+      <div id="trips-list"></div>
+    </div>
+    <div id="items-view" class="view hidden">
+      <h1 id="trip-title"></h1>
+      <div id="items-list"></div>
+      <div id="empty-state" class="hidden">
+        <p>Список пуст</p>
+      </div>
+    </div>
+    <div id="add-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Добавить товар</h2>
+        <input type="text" id="item-name" placeholder="Название">
+        <input type="text" id="item-amount" placeholder="Количество (необязательно)">
+        <select id="item-category">
+          <option value="food">Продукты</option>
+          <option value="household">Хозтовары</option>
+        </select>
+        <button id="save-item">Добавить</button>
+        <button id="cancel-item" class="secondary">Отмена</button>
+      </div>
+    </div>
+  </div>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
