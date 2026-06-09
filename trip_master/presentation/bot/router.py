@@ -1,5 +1,5 @@
-import json
-from uuid import UUID
+import html
+from uuid import UUID, uuid4
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -20,8 +20,7 @@ from trip_master.presentation.bot.keyboards import (
     trips_keyboard,
 )
 
-# In-memory store for generated ingredients (chat_id -> list[dict])
-_pending_dishes: dict[int, list[dict]] = {}
+_pending_dishes: dict[str, dict] = {}
 
 
 def create_router(config: Config, session_factory: async_sessionmaker[AsyncSession]) -> Router:
@@ -70,7 +69,7 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
             trip = Trip.create(chat_id=message.chat.id, name=name)
             await repo.create(trip)
 
-        await message.reply(f"✅ Поездка <b>{name}</b> создана!\nID: <code>{trip.id}</code>")
+        await message.reply(f"✅ Поездка <b>{html.escape(name)}</b> создана!\nID: <code>{trip.id}</code>")
 
     @router.message(Command("trips"), GroupChat())
     async def cmd_trips(message: Message) -> None:
@@ -109,7 +108,7 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
         kb = trip_detail_keyboard(str(trip.id), config.webapp_url)
         await message.reply(
-            f"🏕 <b>{trip.name}</b>\n"
+            f"🏕 <b>{html.escape(trip.name)}</b>\n"
             f"ID: <code>{trip.id}</code>\n"
             f"Статус: {trip.status.value}\n"
             f"Создана: {trip.created_at:%d.%m.%Y %H:%M}",
@@ -135,7 +134,7 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
         kb = trip_detail_keyboard(str(trip.id), config.webapp_url)
         await callback.message.edit_text(
-            f"<b>{trip.name}</b>\n"
+            f"<b>{html.escape(trip.name)}</b>\n"
             f"ID: <code>{trip.id}</code>\n"
             f"Статус: {trip.status.value}\n"
             f"Создана: {trip.created_at:%d.%m.%Y %H:%M}",
@@ -169,7 +168,7 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
             item_repo = SqlAlchemyItemRepository(session)
             await item_repo.create(item)
 
-        await message.reply(f"✅ <b>{name}</b> добавлен в <b>{trip.name}</b>")
+        await message.reply(f"✅ <b>{html.escape(name)}</b> добавлен в <b>{html.escape(trip.name)}</b>")
 
     @router.message(Command("add_dish"), GroupChat())
     async def cmd_add_dish(message: Message) -> None:
@@ -187,36 +186,43 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
         dish = parts[0].strip()
         persons = int(parts[1])
 
-        await message.reply(f"⏳ Генерирую ингредиенты для <b>{dish}</b>...")
+        await message.reply(f"⏳ Генерирую ингредиенты для <b>{html.escape(dish)}</b>...")
 
         try:
             ingredients = await gemini.generate_ingredients(dish, persons)
         except Exception as e:
-            await message.reply(f"❌ Ошибка AI: {e}")
+            await message.reply(f"❌ Ошибка AI: {html.escape(str(e))}")
             return
 
         if not ingredients:
             await message.reply("❌ AI не вернул ингредиенты. Попробуй ещё раз.")
             return
 
-        _pending_dishes[message.chat.id] = ingredients
+        dish_id = uuid4().hex[:8]
+        _pending_dishes[dish_id] = {
+            "dish": dish,
+            "ingredients": ingredients,
+            "persons": persons,
+            "chat_id": message.chat.id,
+        }
 
-        lines = [f"🧂 <b>{dish}</b> — ингредиенты:"]
+        lines = [f"🧂 <b>{html.escape(dish)}</b> — ингредиенты:"]
         for ing in ingredients:
-            lines.append(f"• {ing['name']} — {ing.get('amount', '')}")
+            lines.append(f"• {html.escape(ing['name'])} — {html.escape(str(ing.get('amount', '')))}")
         lines.append("")
 
-        data_key = f"{dish}||{persons}"
-        kb = confirm_ingredients_keyboard(dish, data_key)
-
+        kb = confirm_ingredients_keyboard(dish_id)
         await message.reply("\n".join(lines), reply_markup=kb.as_markup())
 
     @router.callback_query(F.data.startswith("confirm_dish:"))
     async def cb_confirm_dish(callback: CallbackQuery) -> None:
-        ingredients = _pending_dishes.pop(callback.message.chat.id, None)
-        if not ingredients:
+        dish_id = callback.data.removeprefix("confirm_dish:")
+        pending = _pending_dishes.pop(dish_id, None)
+        if not pending:
             await callback.message.edit_text("❌ Данные устарели. Попробуй /add_dish заново.")
             return
+
+        ingredients = pending["ingredients"]
 
         async with session_factory() as session:
             trip_repo = SqlAlchemyTripRepository(session)
@@ -241,47 +247,53 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
             await item_repo.create_many(items)
 
         await callback.message.edit_text(
-            f"✅ {len(items)} ингредиентов добавлено в <b>{trip.name}</b>!"
+            f"✅ {len(items)} ингредиентов добавлено в <b>{html.escape(trip.name)}</b>!"
         )
         await callback.answer()
 
     @router.callback_query(F.data.startswith("regenerate:"))
     async def cb_regenerate(callback: CallbackQuery) -> None:
-        data = callback.data.removeprefix("regenerate:")
-        parts = data.split("||")
-        if len(parts) != 2:
-            await callback.answer("Ошибка данных")
+        dish_id = callback.data.removeprefix("regenerate:")
+        pending = _pending_dishes.get(dish_id)
+        if not pending:
+            await callback.answer("❌ Данные устарели")
             return
 
-        dish, persons_str = parts
-        persons = int(persons_str)
+        dish = pending["dish"]
+        persons = pending["persons"]
 
-        await callback.message.edit_text(f"⏳ Генерирую заново <b>{dish}</b>...")
+        await callback.message.edit_text(f"⏳ Генерирую заново <b>{html.escape(dish)}</b>...")
 
         try:
             ingredients = await gemini.generate_ingredients(dish, persons)
         except Exception as e:
-            await callback.message.edit_text(f"❌ Ошибка AI: {e}")
+            await callback.message.edit_text(f"❌ Ошибка AI: {html.escape(str(e))}")
             return
 
         if not ingredients:
             await callback.message.edit_text("❌ AI не вернул ингредиенты. Попробуй ещё раз.")
             return
 
-        _pending_dishes[callback.message.chat.id] = ingredients
+        _pending_dishes[dish_id] = {
+            "dish": dish,
+            "ingredients": ingredients,
+            "persons": persons,
+            "chat_id": callback.message.chat.id,
+        }
 
-        lines = [f"🧂 <b>{dish}</b> — ингредиенты:"]
+        lines = [f"🧂 <b>{html.escape(dish)}</b> — ингредиенты:"]
         for ing in ingredients:
-            lines.append(f"• {ing['name']} — {ing.get('amount', '')}")
+            lines.append(f"• {html.escape(ing['name'])} — {html.escape(str(ing.get('amount', '')))}")
         lines.append("")
 
-        kb = confirm_ingredients_keyboard(dish, data)
+        kb = confirm_ingredients_keyboard(dish_id)
         await callback.message.edit_text("\n".join(lines), reply_markup=kb.as_markup())
         await callback.answer()
 
-    @router.callback_query(F.data == "cancel_dish")
+    @router.callback_query(F.data.startswith("cancel_dish:"))
     async def cb_cancel_dish(callback: CallbackQuery) -> None:
-        _pending_dishes.pop(callback.message.chat.id, None)
+        dish_id = callback.data.removeprefix("cancel_dish:")
+        _pending_dishes.pop(dish_id, None)
         await callback.message.edit_text("❌ Отменено")
         await callback.answer()
 

@@ -41,7 +41,10 @@ def create_api_router(get_session):  # type: ignore[no-untyped-def]
         name = body.get("name", "").strip()
         if not name:
             raise HTTPException(400, "Name is required")
-        category = Category(body.get("category", "food"))
+        try:
+            category = Category(body.get("category", "food"))
+        except ValueError:
+            raise HTTPException(400, f"Invalid category: {body.get('category')}")
         amount = body.get("amount", "")
 
         item = Item.create(trip_id=trip_id, name=name, category=category, amount=amount)
@@ -72,7 +75,10 @@ def create_api_router(get_session):  # type: ignore[no-untyped-def]
         item = await item_repo.get_by_id(item_id)
         if not item:
             raise HTTPException(404, "Item not found")
-        item.buyer_id = body.get("buyer_id")
+        buyer_id = body.get("buyer_id")
+        if buyer_id is not None and not isinstance(buyer_id, int):
+            raise HTTPException(400, "buyer_id must be an integer or null")
+        item.buyer_id = buyer_id
         await item_repo.update(item)
         return {"id": str(item.id), "buyer_id": item.buyer_id}
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from trip_master.domain.enums import Category
@@ -25,7 +25,7 @@ class Item:
         amount: str = "",
         buyer_id: int | None = None,
     ) -> "Item":
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return Item(
             id=uuid4(),
             trip_id=trip_id,

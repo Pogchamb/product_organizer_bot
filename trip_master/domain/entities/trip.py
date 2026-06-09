@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from trip_master.domain.enums import TripStatus
@@ -16,7 +16,7 @@ class Trip:
 
     @staticmethod
     def create(chat_id: int, name: str) -> "Trip":
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return Trip(
             id=uuid4(),
             chat_id=chat_id,
