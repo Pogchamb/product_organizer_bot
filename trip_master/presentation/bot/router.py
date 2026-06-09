@@ -24,7 +24,7 @@ _pending_dishes: dict[str, dict] = {}
 
 
 def create_router(config: Config, session_factory: async_sessionmaker[AsyncSession]) -> Router:
-    gemini = GeminiClient(config.gemini_api_key)
+    gemini = GeminiClient(api_key=config.gemini_api_key, model=config.gemini_model)
     router = Router()
 
     @router.message(Command("start"), GroupChat())

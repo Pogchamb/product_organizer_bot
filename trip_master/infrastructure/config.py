@@ -6,6 +6,7 @@ class Config(BaseSettings):
 
     bot_token: str
     gemini_api_key: str
+    gemini_model: str = "gemini-2.0-flash"
     database_url: str = "postgresql+asyncpg://tripmaster:tripmaster@localhost:5432/tripmaster"
     webapp_url: str = "http://localhost:8000"
     host: str = "0.0.0.0"
