@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -15,7 +15,7 @@ class TripModel(Base):
     __tablename__ = "trips"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
-    chat_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    chat_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[TripStatus] = mapped_column(
         Enum(TripStatus, name="trip_status"), default=TripStatus.active, nullable=False
@@ -43,7 +43,7 @@ class ItemModel(Base):
     )
     amount: Mapped[str] = mapped_column(String(100), default="", nullable=False)
     is_bought: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    buyer_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    buyer_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
