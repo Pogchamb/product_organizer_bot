@@ -3,6 +3,7 @@ import logging
 
 import uvicorn
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from trip_master.infrastructure.config import Config
@@ -25,7 +26,7 @@ async def main() -> None:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
 
-    bot = Bot(token=config.bot_token, parse_mode="HTML")
+    bot = Bot(token=config.bot_token, default=DefaultBotProperties(parse_mode="HTML"))
     dp = Dispatcher()
     dp.include_router(create_router(config, session_factory))
 
