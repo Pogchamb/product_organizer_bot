@@ -25,7 +25,7 @@ async def main() -> None:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created")
 
-    bot = Bot(token=config.bot_token)
+    bot = Bot(token=config.bot_token, parse_mode="HTML")
     dp = Dispatcher()
     dp.include_router(create_router(config, session_factory))
 

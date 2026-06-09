@@ -25,9 +25,12 @@ class SqlAlchemyTripRepository(TripRepository):
 
     async def get_active_by_chat_id(self, chat_id: int) -> Trip | None:
         result = await self._session.execute(
-            select(TripModel).where(
+            select(TripModel)
+            .where(
                 TripModel.chat_id == chat_id, TripModel.status == TripStatus.active
             )
+            .order_by(TripModel.created_at.desc())
+            .limit(1)
         )
         row = result.scalar_one_or_none()
         return self._to_domain(row) if row else None

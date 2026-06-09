@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from trip_master.domain.entities.item import Item
 from trip_master.domain.entities.trip import Trip
-from trip_master.domain.enums import Category
+from trip_master.domain.enums import Category, TripStatus
 from trip_master.infrastructure.ai.gemini_client import GeminiClient
 from trip_master.infrastructure.db.item_repo import SqlAlchemyItemRepository
 from trip_master.infrastructure.db.trip_repo import SqlAlchemyTripRepository
@@ -63,6 +63,10 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
 
         async with session_factory() as session:
             repo = SqlAlchemyTripRepository(session)
+            active = await repo.get_active_by_chat_id(message.chat.id)
+            if active:
+                active.status = TripStatus.completed
+                await repo.update(active)
             trip = Trip.create(chat_id=message.chat.id, name=name)
             await repo.create(trip)
 
@@ -111,6 +115,33 @@ def create_router(config: Config, session_factory: async_sessionmaker[AsyncSessi
             f"Создана: {trip.created_at:%d.%m.%Y %H:%M}",
             reply_markup=kb.as_markup(),
         )
+
+    @router.callback_query(F.data.startswith("trip:"))
+    async def cb_show_trip(callback: CallbackQuery) -> None:
+        trip_id_str = callback.data.removeprefix("trip:")
+        try:
+            trip_id = UUID(trip_id_str)
+        except ValueError:
+            await callback.answer("❌ Неверный ID")
+            return
+
+        async with session_factory() as session:
+            repo = SqlAlchemyTripRepository(session)
+            trip = await repo.get_by_id(trip_id)
+
+        if not trip:
+            await callback.answer("❌ Поездка не найдена")
+            return
+
+        kb = trip_detail_keyboard(str(trip.id), config.webapp_url)
+        await callback.message.edit_text(
+            f"<b>{trip.name}</b>\n"
+            f"ID: <code>{trip.id}</code>\n"
+            f"Статус: {trip.status.value}\n"
+            f"Создана: {trip.created_at:%d.%m.%Y %H:%M}",
+            reply_markup=kb.as_markup(),
+        )
+        await callback.answer()
 
     @router.message(Command("add_item"), GroupChat())
     async def cmd_add_item(message: Message) -> None:
