@@ -23,8 +23,8 @@ def create_app(session_factory: async_sessionmaker[AsyncSession]) -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str) -> FileResponse:
+    @app.get("/")
+    async def index() -> FileResponse:
         return FileResponse(static_dir / "index.html")
 
     return app
